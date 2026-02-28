@@ -1,0 +1,4 @@
+# Replace your-domain.com with your actual domain
+your-domain.com {
+    reverse_proxy /webhook/zalo localhost:3000
+}

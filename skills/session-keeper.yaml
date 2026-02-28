@@ -1,0 +1,16 @@
+name: session-keeper
+description: "Tự động kiểm tra và duy trì đăng nhập các trang web"
+instructions: |
+  Kiểm tra từng trang web đã lưu:
+  1. Mở trang web
+  2. Kiểm tra còn đăng nhập không (tìm tên người dùng, avatar, trang chủ)
+  3. Nếu bị đăng xuất, dùng thông tin đăng nhập đã lưu để đăng nhập lại
+  4. Nếu cần CAPTCHA hoặc xác thực 2 bước:
+     - Gửi tin nhắn Zalo: "Bà ơi, trang [tên trang] cần đăng nhập lại thủ công.
+       Con không tự đăng nhập được. Bà nhờ cháu giúp nhé."
+  5. Báo cáo kết quả kiểm tra
+
+  Trang web cần kiểm tra:
+  - Email: ${GRANDMA_EMAIL_URL}
+  - Cổng dịch vụ công: ${GOV_SITE_URL}
+  - Lớp học trực tuyến: ${ELEARNING_URL}

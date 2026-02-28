@@ -1,0 +1,21 @@
+name: auto-relogin
+description: "Auto-relogin to sites when sessions expire"
+instructions: |
+  Check each saved site and re-login if session has expired:
+  1. Navigate to site
+  2. Check if still logged in (look for user avatar/name/dashboard)
+  3. If logged out:
+     a. Find the login form
+     b. Enter credentials from environment variables
+     c. Submit and verify login succeeded
+     d. Take screenshot as proof
+  4. If CAPTCHA or 2FA is required:
+     a. DO NOT attempt to bypass
+     b. Send a Zalo message: "Bà ơi, trang [tên trang] cần đăng nhập lại thủ công.
+        Con không tự đăng nhập được. Bà nhờ cháu giúp nhé."
+  5. Report results
+
+  Sites to check:
+  - Email: ${GRANDMA_EMAIL_URL}
+  - Government portal: ${GOV_SITE_URL}
+  - E-learning: ${ELEARNING_URL}

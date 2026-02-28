@@ -1,0 +1,20 @@
+{
+  "kimi": {
+    "baseUrl": "https://api.moonshot.ai/v1",
+    "apiKey": "${MOONSHOT_API_KEY}",
+    "models": {
+      "kimi-k2.5": {
+        "contextWindow": 256000
+      }
+    }
+  },
+  "zai": {
+    "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+    "apiKey": "${ZAI_API_KEY}",
+    "models": {
+      "glm-5": {
+        "contextWindow": 200000
+      }
+    }
+  }
+}

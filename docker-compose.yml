@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  openclaw:
+    image: openclaw/openclaw:latest
+    container_name: openclaw
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config
+      - ./skills:/app/skills
+      - ./browser-profiles:/home/openclaw/.openclaw/browser-profiles
+      - ./data:/app/data
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    shm_size: '2gb'
+
+  # noVNC for initial credential setup (only runs with --profile setup)
+  novnc:
+    image: theasp/novnc:latest
+    container_name: novnc
+    environment:
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=720
+    ports:
+      - "8080:8080"
+    profiles:
+      - setup
