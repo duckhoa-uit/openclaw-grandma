@@ -18,7 +18,7 @@ Your grandmother needs an AI-powered browser assistant that can:
 Grandmother's Phone (Zalo)
         │
         ▼
-   Zalo OA Webhook (HTTPS)
+   Zalo Bot API (long-polling, no webhook needed)
         │
         ▼
    VPS (Hetzner CX33 - 4 vCPU, 8GB RAM, Helsinki DC)
@@ -47,7 +47,7 @@ Grandmother's Phone (Zalo)
    │       ├── email-helper (read/send email in Vietnamese)
    │       ├── study-class (navigate online courses)
    │       └── session-keeper (auto-refresh saved logins)
-   └── Caddy (reverse proxy + auto HTTPS for Zalo webhook)
+   └── Caddy (reverse proxy — optional, only if webhook mode needed)
 ```
 
 ---
@@ -138,12 +138,8 @@ BROWSER_PROFILE=grandma
 BROWSER_KEEP_ALIVE=true
 BROWSER_HEADLESS=true
 
-# Zalo channel
-ZALO_OA_ACCESS_TOKEN=your-zalo-oa-token
-ZALO_OA_REFRESH_TOKEN=your-zalo-refresh-token
-ZALO_APP_ID=your-app-id
-ZALO_APP_SECRET=your-app-secret
-ZALO_WEBHOOK_SECRET=your-webhook-secret
+# Zalo channel (Bot API — uses long-polling by default)
+ZALO_BOT_TOKEN=your-zalo-bot-token
 ```
 
 **`models.providers` config (both Kimi K2.5 and GLM-5):**
@@ -331,37 +327,39 @@ automation:
 ### Step 5: Install & Configure Zalo Channel
 
 ```bash
-# Install Zalo plugin
-openclaw plugins install @openclaw/zalo
+# Install Zalo plugin (inside the gateway container)
+docker compose exec openclaw-gateway openclaw plugins install @openclaw/zalo
 ```
 
-**Zalo OA Setup:**
-1. Create a Zalo Official Account at [oa.zalo.me](https://oa.zalo.me)
-2. Register an app at [developers.zalo.me](https://developers.zalo.me)
-3. Get OA Access Token + App credentials
-4. Configure webhook URL pointing to your VPS
+**Zalo Bot Setup:**
+1. Go to [bot.zaloplatforms.com](https://bot.zaloplatforms.com) and sign in with your Zalo account
+2. Create a new bot and configure its name/avatar
+3. Copy the bot token (format: `12345689:abc-xyz`)
+4. Set `ZALO_BOT_TOKEN=12345689:abc-xyz` in your `.env`
+5. Restart the gateway: `docker compose restart openclaw-gateway`
 
-**Caddy config (`/etc/caddy/Caddyfile`):**
-```
-your-domain.com {
-    reverse_proxy /webhook/zalo localhost:3000
-}
-```
-
-**OpenClaw Zalo channel config:**
+**OpenClaw Zalo channel config (`gateway.yaml`):**
 ```yaml
 channels:
   zalo:
     enabled: true
-    oaAccessToken: ${ZALO_OA_ACCESS_TOKEN}
-    oaRefreshToken: ${ZALO_OA_REFRESH_TOKEN}
-    appId: ${ZALO_APP_ID}
-    appSecret: ${ZALO_APP_SECRET}
-    webhookUrl: https://your-domain.com/webhook/zalo
-    webhookSecret: ${ZALO_WEBHOOK_SECRET}
+    botToken: ${ZALO_BOT_TOKEN}
+    dmPolicy: pairing  # First-time pairing required
 ```
 
-**Note:** Zalo channel is experimental in OpenClaw - DM only, no group support yet.
+**Pairing grandmother's Zalo (one-time):**
+1. Grandmother sends any message to the bot on Zalo
+2. She receives a pairing code
+3. You approve it on the VPS:
+   ```bash
+   docker compose exec openclaw-gateway openclaw pairing list zalo
+   docker compose exec openclaw-gateway openclaw pairing approve zalo <CODE>
+   ```
+4. After approval, all her messages reach the agent
+
+**Note:** Zalo uses **long-polling by default** — no webhook, domain, or Caddy needed.
+If you prefer webhook mode, set `channels.zalo.webhookUrl` and `channels.zalo.webhookSecret` and configure Caddy.
+Zalo channel is experimental — DM only, no group support yet.
 
 ### Step 6: Install Official Browser & Office Skills
 
@@ -650,8 +648,8 @@ Before going live, verify the full Vietnamese experience:
 |---|---|
 | Hetzner CX33 (Helsinki) | **~$5.99/mo** |
 | Kimi K2.5 or GLM-5 API (light usage) | **~$1-3** (both have free tiers) |
-| Domain name (for HTTPS webhook) | ~$1/mo or use free subdomain |
-| **Total** | **~$7-10/month** |
+| Domain name (optional, only for webhook mode) | ~$1/mo or free |
+| **Total** | **~$6-9/month** |
 
 ---
 

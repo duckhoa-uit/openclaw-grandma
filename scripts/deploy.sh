@@ -32,9 +32,10 @@ cp -v "$GRANDMA_REPO/config/gateway.yaml" "$PERSISTENT_DIR/" 2>/dev/null || true
 cp -v "$GRANDMA_REPO/config/models.providers.json" "$PERSISTENT_DIR/" 2>/dev/null || true
 cp -v "$GRANDMA_REPO/config/system-prompt.md" "$PERSISTENT_DIR/workspace/" 2>/dev/null || true
 
-# Copy Caddyfile to system Caddy config
+# Copy Caddyfile to system Caddy config (optional — only needed for webhook mode)
 if [ -f "$GRANDMA_REPO/config/Caddyfile" ]; then
   sudo cp -v "$GRANDMA_REPO/config/Caddyfile" /etc/caddy/Caddyfile
+  echo "(Caddy config copied — only needed if you switch Zalo to webhook mode)"
 fi
 
 # Copy custom Vietnamese skills to workspace
@@ -86,8 +87,9 @@ echo ""
 echo "OpenClaw gateway is running on port 18789 (localhost only)."
 echo ""
 echo "Next steps:"
-echo "1. Reload Caddy: sudo systemctl reload caddy"
-echo "2. Set up credentials: $GRANDMA_REPO/scripts/setup-credentials.sh"
+echo "1. Pair grandmother's Zalo: have her message the bot, then run:"
+echo "   docker compose exec openclaw-gateway openclaw pairing approve zalo <CODE>"
+echo "2. Set up browser credentials: $GRANDMA_REPO/scripts/setup-credentials.sh"
 echo "3. Test with: $GRANDMA_REPO/scripts/test-vietnamese.sh"
 echo ""
 echo "Access from your machine via SSH tunnel:"

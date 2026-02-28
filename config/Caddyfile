@@ -1,4 +1,11 @@
-# Replace your-domain.com with your actual domain
+# Caddy reverse proxy (OPTIONAL — only needed if using Zalo webhook mode)
+# By default, Zalo uses long-polling and does NOT need a webhook/domain.
+#
+# If you switch to webhook mode:
+# 1. Replace your-domain.com with your actual domain
+# 2. Set channels.zalo.webhookUrl and channels.zalo.webhookSecret in gateway.yaml
+# 3. Run: sudo systemctl reload caddy
+
 your-domain.com {
     reverse_proxy /webhook/zalo localhost:18789
 }

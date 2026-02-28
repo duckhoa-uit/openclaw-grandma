@@ -11,12 +11,8 @@ browser:
 channels:
   zalo:
     enabled: true
-    oaAccessToken: ${ZALO_OA_ACCESS_TOKEN}
-    oaRefreshToken: ${ZALO_OA_REFRESH_TOKEN}
-    appId: ${ZALO_APP_ID}
-    appSecret: ${ZALO_APP_SECRET}
-    webhookUrl: https://your-domain.com/webhook/zalo
-    webhookSecret: ${ZALO_WEBHOOK_SECRET}
+    botToken: ${ZALO_BOT_TOKEN}
+    dmPolicy: pairing  # Approve grandma's first message with: openclaw pairing approve zalo <CODE>
 
 automation:
   schedules:
