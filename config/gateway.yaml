@@ -2,7 +2,7 @@ browser:
   profile: grandma
   keepAlive: true
   headless: true
-  userDataDir: /home/openclaw/.openclaw/browser-profiles/grandma
+  userDataDir: /home/node/.openclaw/browser-profiles/grandma
   args:
     - "--no-first-run"
     - "--disable-sync"

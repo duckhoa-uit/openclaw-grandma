@@ -21,8 +21,8 @@ Grandmother's Phone (Zalo)
    Zalo OA Webhook (HTTPS)
         │
         ▼
-   VPS (Contabo VPS S - 4 vCPU, 8GB RAM, Singapore DC)
-   ├── OpenClaw (Docker)
+   VPS (Hetzner CX33 - 4 vCPU, 8GB RAM, Helsinki DC)
+   ├── OpenClaw Gateway (Docker — built from github.com/openclaw/openclaw)
    │   ├── Zalo Channel Plugin (@openclaw/zalo)
    │   ├── LLM Provider (Kimi K2.5 via OpenAI-compatible API)
    │   ├── Browser Tool (OpenClaw-managed, persistent profile)
@@ -54,27 +54,28 @@ Grandmother's Phone (Zalo)
 
 ## Step-by-Step Plan
 
-### Step 1: Provision VPS on Contabo
+### Step 1: Provision VPS on Hetzner
 
-- Sign up at [contabo.com](https://contabo.com)
-- Order **VPS S** plan (~$4/mo):
-  - CPU: 4 vCPU
-  - RAM: 8 GB (plenty for Chrome + OpenClaw)
-  - Storage: 50 GB NVMe SSD
+- Sign up at [hetzner.com/cloud](https://hetzner.com/cloud)
+- Create a **CX33** server (~$5.99/mo):
+  - CPU: 4 vCPU (x86 Intel/AMD)
+  - RAM: 8 GB
+  - Storage: 80 GB NVMe SSD
   - OS: Ubuntu 22.04
-  - **Datacenter: Singapore** (lowest latency to Vietnam)
-  - Open ports: 22 (SSH), 443 (HTTPS for Zalo webhook)
-- Contabo is reliable, no ARM availability issues, straightforward provisioning
+  - **Datacenter: Helsinki (hel1-dc2)** (or Singapore if available)
+  - Add your SSH key during creation
+- Access: `ssh root@YOUR_VPS_IP`
 
 ### Step 2: Server Base Setup
 
 ```bash
+# Or run the automated script: scripts/vps-setup.sh
+
 # Update system
-sudo apt update && sudo apt upgrade -y
+apt-get update && apt-get install -y git curl ca-certificates
 
 # Install Docker
 curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
 
 # Install Caddy (reverse proxy for HTTPS)
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
@@ -82,24 +83,51 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --d
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 sudo apt update && sudo apt install caddy
 
-# Create dedicated user
-sudo useradd -m -s /bin/bash openclaw
-sudo usermod -aG docker openclaw
+# Set up firewall
+sudo ufw default deny incoming && sudo ufw default allow outgoing
+sudo ufw allow 22/tcp && sudo ufw allow 443/tcp
+sudo ufw --force enable
 ```
 
-### Step 3: Install & Configure OpenClaw
+### Step 3: Clone & Build OpenClaw (Official Docker Method)
 
 ```bash
-# Clone OpenClaw
-git clone https://github.com/openclaw/openclaw.git /home/openclaw/openclaw
-cd /home/openclaw/openclaw
+# Clone the official OpenClaw repo
+git clone https://github.com/openclaw/openclaw.git /opt/openclaw
+cd /opt/openclaw
 
-# Copy environment template
-cp .env.example .env
+# Create persistent host directories (survives container rebuilds)
+mkdir -p /root/.openclaw/workspace
+chown -R 1000:1000 /root/.openclaw
+
+# Clone this grandma config repo
+git clone https://github.com/duckhoa-uit/openclaw-grandma.git /opt/openclaw-grandma
+
+# Copy .env.example and fill in your keys
+cp /opt/openclaw-grandma/.env.example /opt/openclaw/.env
+nano .env  # Fill in API keys, tokens, generate secrets with: openssl rand -hex 32
+
+# Run the official Docker setup script (builds image + onboarding wizard)
+./docker-setup.sh
+
+# Or build manually:
+# docker compose build
+# docker compose run --rm openclaw-cli onboard
+# docker compose up -d openclaw-gateway
 ```
 
 **`.env` configuration:**
 ```env
+# OpenClaw Gateway (required)
+OPENCLAW_IMAGE=openclaw:latest
+OPENCLAW_GATEWAY_TOKEN=<generate with: openssl rand -hex 32>
+OPENCLAW_GATEWAY_BIND=lan
+OPENCLAW_GATEWAY_PORT=18789
+OPENCLAW_CONFIG_DIR=/root/.openclaw
+OPENCLAW_WORKSPACE_DIR=/root/.openclaw/workspace
+GOG_KEYRING_PASSWORD=<generate with: openssl rand -hex 32>
+XDG_CONFIG_HOME=/home/node/.openclaw
+
 # LLM Providers (both configured, switch via DEFAULT_MODEL)
 MOONSHOT_API_KEY=your-moonshot-api-key
 ZAI_API_KEY=your-zai-api-key
@@ -513,33 +541,37 @@ instructions: |
 
 ### Step 8: Docker Compose (Final Deployment)
 
+The `docker-compose.yml` is placed inside the cloned OpenClaw repo (`/opt/openclaw`).
+This repo (`openclaw-grandma`) provides config, skills, and scripts that get copied into the deployment.
+
 ```yaml
-# docker-compose.yml
-version: '3.8'
+# docker-compose.yml (inside /opt/openclaw)
 services:
-  openclaw:
-    image: openclaw/openclaw:latest
-    container_name: openclaw
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE}
+    build: .
+    container_name: openclaw-gateway
     restart: unless-stopped
-    volumes:
-      - ./config:/app/config
-      - ./skills:/app/skills
-      - ./browser-profiles:/home/openclaw/.openclaw/browser-profiles
-      - ./data:/app/data
+    env_file:
+      - .env
     environment:
-      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY}
-      - DEFAULT_MODEL=kimi/kimi-k2.5
-      - BROWSER_PROFILE=grandma
-      - BROWSER_KEEP_ALIVE=true
-      - BROWSER_HEADLESS=true
-      - ZALO_OA_ACCESS_TOKEN=${ZALO_OA_ACCESS_TOKEN}
-      - ZALO_OA_REFRESH_TOKEN=${ZALO_OA_REFRESH_TOKEN}
-      - ZALO_APP_ID=${ZALO_APP_ID}
-      - ZALO_APP_SECRET=${ZALO_APP_SECRET}
-      - ZALO_WEBHOOK_SECRET=${ZALO_WEBHOOK_SECRET}
+      - HOME=/home/node
+      - NODE_ENV=production
+      - TERM=${TERM}
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND}
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_GATEWAY_PORT}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
+      - XDG_CONFIG_HOME=/home/node/.config
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
     ports:
-      - "3000:3000"
-    shm_size: '2gb'  # Required for Chrome
+      # Loopback only — access via SSH tunnel from your laptop
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT}:18789"
+    shm_size: '2gb'  # Required for Chromium/Playwright
+    command: ["node", "dist/index.js", "gateway", "--bind", "${OPENCLAW_GATEWAY_BIND}", "--port", "${OPENCLAW_GATEWAY_PORT}", "--allow-unconfigured"]
 
   # noVNC for initial credential setup (disable after setup)
   novnc:
@@ -549,9 +581,15 @@ services:
       - DISPLAY_WIDTH=1280
       - DISPLAY_HEIGHT=720
     ports:
-      - "8080:8080"
+      - "6080:8080"
     profiles:
-      - setup  # Only runs during initial setup
+      - setup  # Only runs with: docker compose --profile setup up -d novnc
+```
+
+**Access the Gateway from your laptop (SSH tunnel):**
+```bash
+ssh -N -L 18789:127.0.0.1:18789 root@YOUR_VPS_IP
+# Then open http://127.0.0.1:18789/ and paste your OPENCLAW_GATEWAY_TOKEN
 ```
 
 ### Step 9: Vietnamese Language Testing
@@ -572,10 +610,10 @@ Before going live, verify the full Vietnamese experience:
 
 ### Step 10: Security Hardening
 
-- [ ] Create dedicated `openclaw` Linux user
 - [ ] Enable UFW firewall (only 22, 443)
 - [ ] Use SSH keys only (disable password auth)
-- [ ] Enable OpenClaw sandbox mode
+- [ ] Keep Gateway loopback-only (access via SSH tunnel)
+- [ ] Set a strong OPENCLAW_GATEWAY_TOKEN
 - [ ] Only install skills from official OpenClaw repo (230+ malicious skills were found in Jan-Feb 2026)
 - [ ] Disable noVNC after initial credential setup
 - [ ] Set up daily backups of browser profile directory
@@ -610,19 +648,22 @@ Before going live, verify the full Vietnamese experience:
 
 | Item | Monthly Cost |
 |---|---|
-| Contabo VPS S (Singapore) | **~$4/mo** |
+| Hetzner CX33 (Helsinki) | **~$5.99/mo** |
 | Kimi K2.5 or GLM-5 API (light usage) | **~$1-3** (both have free tiers) |
 | Domain name (for HTTPS webhook) | ~$1/mo or use free subdomain |
-| **Total** | **~$5-8/month** |
+| **Total** | **~$7-10/month** |
 
 ---
 
 ## Verification / Testing
 
-1. Deploy Docker stack, verify OpenClaw starts cleanly
-2. Start browser with `--keep-alive`, log into one test site, restart OpenClaw, verify session persists
-3. Send a Zalo message to the OA bot, verify it reaches OpenClaw and responds
-4. Test form-filler skill on a Vietnamese government form
-5. Test PDF reader with a sample Vietnamese PDF
-6. Test session-keeper skill refreshes logins automatically
-7. Verify Vietnamese language quality with Kimi K2.5 (switch to Qwen/Gemini if needed)
+1. Build and start gateway: `docker compose build && docker compose up -d openclaw-gateway`
+2. Check logs: `docker compose logs -f openclaw-gateway` (should show `listening on ws://0.0.0.0:18789`)
+3. SSH tunnel from laptop: `ssh -N -L 18789:127.0.0.1:18789 root@89.167.33.213`
+4. Open `http://127.0.0.1:18789/` and paste your gateway token
+5. Install Playwright: `docker compose run --rm openclaw-cli node /app/node_modules/playwright-core/cli.js install chromium`
+6. Start browser with `--keep-alive`, log into one test site, restart gateway, verify session persists
+7. Send a Zalo message to the OA bot, verify it reaches OpenClaw and responds
+8. Test form-filler skill on a Vietnamese government form
+9. Test PDF reader with a sample Vietnamese PDF
+10. Verify Vietnamese language quality with Kimi K2.5 (switch to Qwen/Gemini if needed)

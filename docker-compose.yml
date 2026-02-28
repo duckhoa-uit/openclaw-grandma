@@ -1,19 +1,32 @@
-version: '3.8'
+# OpenClaw Hetzner Docker Deployment
+# Place this file inside the cloned openclaw repo directory.
+# Configure variables in .env (see .env.example).
+
 services:
-  openclaw:
-    image: openclaw/openclaw:latest
-    container_name: openclaw
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE}
+    build: .
+    container_name: openclaw-gateway
     restart: unless-stopped
+    environment:
+      - HOME=/home/node
+      - NODE_ENV=production
+      - TERM=${TERM}
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND}
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_GATEWAY_PORT}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
+      - XDG_CONFIG_HOME=/home/node/.openclaw
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
-      - ./config:/app/config
-      - ./skills:/app/skills
-      - ./browser-profiles:/home/openclaw/.openclaw/browser-profiles
-      - ./data:/app/data
+      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT}:18789"
     shm_size: '2gb'
+    command: ["node", "dist/index.js", "gateway", "--bind", "${OPENCLAW_GATEWAY_BIND}", "--port", "${OPENCLAW_GATEWAY_PORT}", "--allow-unconfigured"]
 
   # noVNC for initial credential setup (only runs with --profile setup)
   novnc:
@@ -23,6 +36,6 @@ services:
       - DISPLAY_WIDTH=1280
       - DISPLAY_HEIGHT=720
     ports:
-      - "8080:8080"
+      - "6080:8080"
     profiles:
       - setup
