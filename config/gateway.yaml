@@ -1,3 +1,10 @@
+plugins:
+  allow:
+    - zalo
+  entries:
+    zalo:
+      enabled: true
+
 browser:
   profile: grandma
   keepAlive: true

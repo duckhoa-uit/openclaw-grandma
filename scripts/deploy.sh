@@ -42,6 +42,20 @@ fi
 mkdir -p "$PERSISTENT_DIR/workspace/skills"
 cp -v "$GRANDMA_REPO/skills/"* "$PERSISTENT_DIR/workspace/skills/" 2>/dev/null || true
 
+# Clean up any user-installed Zalo plugin (use bundled one from /app/extensions/zalo)
+# The bundled plugin has all deps (zod etc.); user-installed copies don't.
+echo "=== Cleaning up duplicate Zalo plugin ==="
+rm -rf "$PERSISTENT_DIR/extensions/zalo" 2>/dev/null || true
+
+# Remove stale Zalo install metadata from openclaw.json if present
+if [ -f "$PERSISTENT_DIR/openclaw.json" ] && command -v jq &>/dev/null; then
+  if jq -e '.plugins.installs.zalo' "$PERSISTENT_DIR/openclaw.json" &>/dev/null; then
+    echo "Removing stale plugins.installs.zalo from openclaw.json"
+    jq 'del(.plugins.installs.zalo)' "$PERSISTENT_DIR/openclaw.json" > /tmp/oc-clean.json \
+      && mv /tmp/oc-clean.json "$PERSISTENT_DIR/openclaw.json"
+  fi
+fi
+
 # Ensure correct ownership for container user (uid 1000)
 chown -R 1000:1000 "$PERSISTENT_DIR"
 
@@ -53,9 +67,6 @@ sleep 15
 
 echo "=== Installing Playwright browsers ==="
 docker compose run --rm openclaw-cli node /app/node_modules/playwright-core/cli.js install chromium
-
-echo "=== Installing Zalo plugin ==="
-docker compose exec openclaw-gateway openclaw plugins install @openclaw/zalo
 
 echo "=== Installing official skills ==="
 # Browser skills
